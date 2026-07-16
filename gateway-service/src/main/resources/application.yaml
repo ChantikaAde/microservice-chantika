@@ -1,0 +1,81 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+
+            # ==========================
+            # AUTH SERVICE
+            # ==========================
+            - id: AUTH-SERVICE
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/**
+
+            # ==========================
+            # PRODUK 
+            # ==========================
+            - id: PRODUK
+              uri: lb://PRODUK
+              predicates:
+                - Path=/api/produk/**
+
+            # ==========================
+            # ORDER 
+            # ==========================
+            - id: ORDER
+              uri: lb://ORDER
+              predicates:
+                - Path=/api/order/**
+
+            # ==========================
+            # PELANGGAN
+            # ==========================
+            - id: PELANGGAN
+              uri: lb://PELANGGAN
+              predicates:
+                - Path=/api/pelanggan/**
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+
+  instance:
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+
+# ==========================================
+# ACTUATOR
+# ==========================================
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+  endpoint:
+    health:
+      show-details: always
+
+    prometheus:
+      access: unrestricted
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true

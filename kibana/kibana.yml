@@ -1,0 +1,31 @@
+# Pengaturan Server
+server.name: "kibana"
+server.host: "0.0.0.0"
+server.port: 5601
+
+# Pengaturan Elasticsearch
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# Pengaturan Keamanan (Local Development Mode)
+# Menonaktifkan keamanan agar tidak perlu login/token
+xpack.security.enabled: false
+
+# Pengaturan Internasionalisasi
+i18n.locale: "en"
+
+# Pengaturan Logging
+logging.root.level: info
+logging.appenders.default.type: console
+logging.appenders.default.layout.type: json
+logging.root.appenders: ["default"]
+
+# Monitoring UI
+monitoring.ui.container.elasticsearch.enabled: true
+
+# --- WAJIB DIISI: Encryption Keys ---
+# Jalankan perintah: .\kibana-encryption-keys.bat generate
+# Lalu ganti string di bawah ini dengan hasil generate di terminal Anda:
+
+xpack.encryptedSavedObjects.encryptionKey: cf0bce8243dd52baf6396960a7dca70d2d69ed4dc8db03664fc6e12c25f8e819
+xpack.reporting.encryptionKey: 5e3f998ebffe96e618e92c803f3df021fdf392b2b0785cdd90208751d39a3f98
+xpack.security.encryptionKey: cf10e739c2817b58300a8b3c650f9367bdf89e38298d6e4797f7bf324ef52053

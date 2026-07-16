@@ -1,0 +1,386 @@
+services:
+
+  #################################################
+  # EUREKA
+  #################################################
+
+  eureka:
+    build:
+      context: ./eureka
+      dockerfile: dockerfile
+
+    container_name: eureka
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8761:8761"
+
+    environment:
+      LOGSTASH_HOST: logstash
+
+    networks:
+      - monitoring
+
+  #################################################
+  # RABBITMQ
+  #################################################
+
+  rabbitmq:
+    image: rabbitmq:3-management
+
+    container_name: rabbitmq
+
+    restart: unless-stopped
+
+    mem_limit: 256m
+
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # PRODUK
+  #################################################
+
+  produk:
+    build:
+      context: ./produk
+      dockerfile: dockerfile
+
+    container_name: produk
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8081:8081"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # ORDER
+  #################################################
+
+  order:
+    build:
+      context: ./order
+      dockerfile: dockerfile
+
+    container_name: order
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8084:8084"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      RABBITMQ_HOST: rabbitmq
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+      - rabbitmq
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # PELANGGAN
+  #################################################
+
+  pelanggan:
+    build:
+      context: ./pelanggan
+      dockerfile: dockerfile
+
+    container_name: pelanggan
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8082:8082"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # CONSUMER
+  #################################################
+
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: dockerfile
+
+    container_name: consumer
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8083:8083"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      RABBITMQ_HOST: rabbitmq
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+      - rabbitmq
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # GATEWAY
+  #################################################
+
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: dockerfile
+
+    container_name: gateway-service
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "9000:9000"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: gateway-service
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # AUTH
+  #################################################
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: dockerfile
+
+    container_name: auth-service
+
+    restart: unless-stopped
+
+    mem_limit: 512m
+
+    ports:
+      - "8086:8086"
+
+    environment:
+      EUREKA_SERVER: http://eureka:8761/eureka/
+      LOGSTASH_HOST: logstash
+
+    depends_on:
+      - eureka
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # PROMETHEUS
+  #################################################
+
+  prometheus:
+    image: prom/prometheus:latest
+
+    container_name: prometheus
+
+    restart: unless-stopped
+
+    mem_limit: 256m
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+    depends_on:
+      - eureka
+      - gateway-service
+      - auth-service
+      - produk
+      - pelanggan
+      - order
+      - consumer
+
+    networks:
+      - monitoring
+
+  #################################################
+  # GRAFANA
+  #################################################
+
+  grafana:
+    image: grafana/grafana:latest
+
+    container_name: grafana
+
+    restart: unless-stopped
+
+    mem_limit: 256m
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    depends_on:
+      - prometheus
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # ELASTICSEARCH
+  #################################################
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+
+    container_name: elasticsearch
+
+    restart: unless-stopped
+
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+
+    volumes:
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+
+    ports:
+      - "9200:9200"
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    networks:
+      - monitoring
+
+  #################################################
+  # LOGSTASH
+  #################################################
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.3
+
+    container_name: logstash
+
+    restart: unless-stopped
+
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+
+    ports:
+      - "5044:5044"
+
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+
+    depends_on:
+      - elasticsearch
+
+    networks:
+      - monitoring
+
+
+  #################################################
+  # KIBANA
+  #################################################
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+
+    container_name: kibana
+
+    restart: unless-stopped
+
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=512"
+
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+
+    ports:
+      - "5601:5601"
+
+    depends_on:
+      - elasticsearch
+
+    networks:
+      - monitoring
+
+
+#################################################
+# NETWORK
+#################################################
+
+networks:
+  monitoring:
+    driver: bridge
